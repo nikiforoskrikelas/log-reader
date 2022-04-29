@@ -16,6 +16,8 @@
             <AppenderRef ref="Console"/>
         </Logger>
 
+        <!-- HSQL Server logs need to be added here -->
+
         <Root level="info">
             <AppenderRef ref="Console"/>
         </Root>

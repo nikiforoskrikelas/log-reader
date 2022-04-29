@@ -16,12 +16,13 @@ import javax.persistence.*;
 @NoArgsConstructor
 @JsonIgnoreProperties
 public class LogMessage {
-
+//Perhaps different Objects could be used for parsing and for storing in the DB as well
     @Id
     @JsonProperty("id")
     @Column(name = "id")
     private String id;
 
+    //@JsonInclude() & @Transient allows a field to be parsed from json, but not stored in the db
     @JsonInclude()
     @Transient
     private Boolean isStarted;

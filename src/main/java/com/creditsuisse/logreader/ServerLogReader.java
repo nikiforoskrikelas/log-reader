@@ -1,6 +1,8 @@
 package com.creditsuisse.logreader;
 
 import com.creditsuisse.logreader.models.LogMessage;
+import com.creditsuisse.logreader.server.HSQLDBServer;
+import com.creditsuisse.logreader.server.Server;
 import com.creditsuisse.logreader.uitl.HibernateUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.io.FileUtils;
@@ -14,31 +16,37 @@ import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.hsqldb.Server;
+import static org.apache.logging.log4j.Level.DEBUG;
 
 public class ServerLogReader {
     private static final Logger LOGGER = LogManager.getLogger(ServerLogReader.class);
     private static final int SLA = 4;
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static Server server = new HSQLDBServer();
 
     @Option(name = "-file", usage = "input file", required = true)
     private String inputFilePath;
 
-    public static void main(String[] args){
-        Server server = new Server();
+
+    protected ServerLogReader() {
+    }
+
+    public static void main(String[] args) {
+        LOGGER.info("Running Log Reader");
+
 
         try {
-            server.setDatabaseName(0, "logsdb");
-            server.setDatabasePath(0, "file:db/logsdb");
-            server.setAddress("localhost");
-            server.setPort(9001); // this is the default port
             server.start();
 
             new ServerLogReader().doMain(args);
+
+            server.stop();
+            System.exit(0);
+
         } catch (Exception e) {
             LOGGER.error(e);
             server.stop();
@@ -46,34 +54,12 @@ public class ServerLogReader {
 
         }
 
-        server.stop();
-        System.exit(0);
-
-
     }
 
-    private void doMain(String[] args){
-        LOGGER.info("Running Log Reader");
-        CmdLineParser parser = new CmdLineParser(this);
+    private void doMain(String[] args) throws Exception {
+        File serverLogFile = parseCmdArgs(args);
 
-        try {
-            // parse the arguments.
-            parser.parseArgument(args);
-
-        } catch (CmdLineException e) {
-            LOGGER.error(e.getMessage());
-            // print the list of available options
-            parser.printUsage(System.err);
-
-            return;
-        }
-
-        File serverLogFile = new File(inputFilePath);
-        LOGGER.info("Reading input from file: " + serverLogFile);
-
-
-        ObjectMapper mapper = new ObjectMapper();
-
+        if (serverLogFile == null) return;
 
         Map<String, LogMessage> idToMessage = new HashMap<>();
 
@@ -88,7 +74,7 @@ public class ServerLogReader {
                     String line = it.nextLine();
                     LOGGER.debug(line);
 
-                    LogMessage logMessage = mapper.readValue(line, LogMessage.class);
+                    LogMessage logMessage = MAPPER.readValue(line, LogMessage.class);
                     LOGGER.info("Processing " + logMessage);
 
                     // Combine events
@@ -98,7 +84,7 @@ public class ServerLogReader {
 
                         logMessage.setDuration(duration);
 
-                        if(duration>SLA)
+                        if (duration > SLA)
                             LOGGER.info("Event with id " + logMessage.getId() + " breached SLA of " + SLA + " milliseconds");
 
                         logMessage.setAlert(duration > SLA);
@@ -112,27 +98,55 @@ public class ServerLogReader {
 
                 }
             }
-
             transaction.commit();
+            LOGGER.info("SUCCESS: " + inputFilePath + " has been processed!");
 
         } catch (Exception e) {
             LOGGER.error(e.getMessage(), e);
 
         }
 
-        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
-            List<LogMessage> students = session.createQuery("from LogMessage", LogMessage.class).list();
-            for (LogMessage i : students) {
-                LOGGER.info(i);
-            }
+        if (LOGGER.getLevel() == DEBUG) {
+            LOGGER.debug("Displaying database contents for debugging");
 
-        } catch (Exception e) {
-            if (transaction != null) {
-                transaction.rollback();
+            //Stream through the file
+            //Since the entire file is not fully in memory this will  result in low memory consumption
+            try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+                List<LogMessage> students = session.createQuery("from LogMessage", LogMessage.class).list();
+                for (LogMessage i : students) {
+                    LOGGER.debug(i);
+                }
+
+            } catch (Exception e) {
+                if (transaction != null) {
+                    transaction.rollback();
+                }
+                LOGGER.error(e.getMessage(), e);
             }
-            LOGGER.error(e.getMessage(), e);
         }
     }
+
+    private File parseCmdArgs(String[] args) {
+        CmdLineParser parser = new CmdLineParser(this);
+
+        try {
+            // parse the arguments.
+            parser.parseArgument(args);
+
+        } catch (CmdLineException e) {
+            LOGGER.error(e.getMessage());
+            // print the list of available options
+            parser.printUsage(System.err);
+
+            return null;
+        }
+
+        File serverLogFile = new File(inputFilePath);
+        LOGGER.info("Reading input from file: " + serverLogFile);
+        return serverLogFile;
+    }
+
+
 }
 
 
