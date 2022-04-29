@@ -38,7 +38,6 @@ public class ServerLogReader {
     public static void main(String[] args) {
         LOGGER.info("Running Log Reader");
 
-
         try {
             server.start();
 
@@ -68,6 +67,8 @@ public class ServerLogReader {
             // start a transaction
             transaction = session.beginTransaction();
 
+            //Stream through the file
+            //Since the entire file is not fully in memory this will  result in low memory consumption
             //Process file and place in logsdb, also notify of long events
             try (LineIterator it = FileUtils.lineIterator(serverLogFile, "UTF-8")) {
                 while (it.hasNext()) {
@@ -106,24 +107,25 @@ public class ServerLogReader {
 
         }
 
-        if (LOGGER.getLevel() == DEBUG) {
-            LOGGER.debug("Displaying database contents for debugging");
 
-            //Stream through the file
-            //Since the entire file is not fully in memory this will  result in low memory consumption
-            try (Session session = HibernateUtil.getSessionFactory().openSession()) {
-                List<LogMessage> students = session.createQuery("from LogMessage", LogMessage.class).list();
-                for (LogMessage i : students) {
-                    LOGGER.debug(i);
-                }
 
-            } catch (Exception e) {
-                if (transaction != null) {
-                    transaction.rollback();
-                }
-                LOGGER.error(e.getMessage(), e);
+
+        //Display db contents for ease of verifying results
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            List<LogMessage> students = session.createQuery("from LogMessage", LogMessage.class).list();
+            LOGGER.info("-------------------------------------Database Contents START-----------------------------");
+            for (LogMessage i : students) {
+                LOGGER.info(i);
             }
+            LOGGER.info("-------------------------------------Database Contents END-------------------------------");
+
+        } catch (Exception e) {
+            if (transaction != null) {
+                transaction.rollback();
+            }
+            LOGGER.error(e.getMessage(), e);
         }
+
     }
 
     private File parseCmdArgs(String[] args) {

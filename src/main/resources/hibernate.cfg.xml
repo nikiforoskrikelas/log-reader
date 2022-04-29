@@ -13,7 +13,6 @@
 
         <!-- Select our SQL dialect -->
         <property name="dialect">org.hibernate.dialect.HSQLDialect</property>
-        <!-- Echo the SQL to stdout -->
 
         <!-- dbcp connection pool configuration -->
         <property name="hibernate.dbcp.initialSize">5</property>
@@ -21,6 +20,7 @@
         <property name="hibernate.dbcp.maxIdle">10</property>
         <property name="hibernate.dbcp.minIdle">5</property>
         <property name="hibernate.dbcp.maxWaitMillis">-1</property>
+
         <mapping class="com.creditsuisse.logreader.models.LogMessage"/>
     </session-factory>
 </hibernate-configuration>
