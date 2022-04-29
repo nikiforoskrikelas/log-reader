@@ -4,6 +4,9 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.LineIterator;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.kohsuke.args4j.CmdLineException;
+import org.kohsuke.args4j.CmdLineParser;
+import org.kohsuke.args4j.Option;
 
 import java.io.File;
 import java.io.IOException;
@@ -12,13 +15,30 @@ import java.io.IOException;
 public class ServerLogReader {
     private static final Logger LOGGER = LogManager.getLogger(ServerLogReader.class);
 
-    private static final String SERVER_LOG_FILE_PATH = "logfile.txt";
-
+    @Option(name = "-file", usage = "input file", required = true)
+    private String inputFilePath;
 
     public static void main(String[] args) throws IOException {
-        LOGGER.info("Running Log Reader");
+        new ServerLogReader().doMain(args);
+    }
 
-        File serverLogFile = new File(SERVER_LOG_FILE_PATH);
+    private void doMain(String[] args) throws IOException {
+        LOGGER.info("Running Log Reader");
+        CmdLineParser parser = new CmdLineParser(this);
+
+        try {
+            // parse the arguments.
+            parser.parseArgument(args);
+
+        } catch (CmdLineException e) {
+            LOGGER.error(e.getMessage());
+            // print the list of available options
+            parser.printUsage(System.err);
+
+            return;
+        }
+
+        File serverLogFile = new File(inputFilePath);
         LOGGER.info("Reading input from file: " + serverLogFile);
         ObjectMapper mapper = new ObjectMapper();
 
@@ -36,3 +56,5 @@ public class ServerLogReader {
         }
     }
 }
+
+
